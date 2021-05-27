@@ -51,4 +51,18 @@ public class TestInt128 {
 			Assertions.assertEquals(productBigInt, productInt128);
 		}
 	}
+	
+	@Test
+	public void foo() {
+		FixedPoint56Q8 almostEmpty = FixedPoint56Q8.valueOf(1.0D/256D);
+		FixedPoint56Q8 almostFull = FixedPoint56Q8.valueOf(255D/256D);
+		System.out.println(almostFull.add(almostEmpty));
+		
+		FixedPoint56Q8 almostEmptyNeg = FixedPoint56Q8.valueOf(-1.0D/256D);
+		FixedPoint56Q8 almostFullNeg = FixedPoint56Q8.valueOf(-255D/256D);
+		
+		System.out.println(almostFullNeg.add(almostEmptyNeg));
+		
+		System.out.println(FixedPoint56Q8.MIN_VALUE);
+	}
 }

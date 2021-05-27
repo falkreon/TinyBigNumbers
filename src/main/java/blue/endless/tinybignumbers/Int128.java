@@ -11,18 +11,24 @@ package blue.endless.tinybignumbers;
 import java.math.BigInteger;
 
 /**
- * Stores a 128-bit number as a twos-complement signed
+ * Immutable twos-complement signed 128-bit integer.
+ * 
+ * <p>To create records, use {@link #valueOf(long)} or {@link #valueOf(BigInteger)} rather than
+ * the constructor, so that commonly-used instances can be supplied instead of new records or
+ * object projections.
  */
 public record Int128(long high, long low) {
-	public static final Int128 ZERO = Int128.valueOf(0);
-	public static final Int128 ONE  = Int128.valueOf(1);
-	public static final Int128 NEGATIVE_ONE = Int128.valueOf(-1);
-	public static final Int128 TEN = Int128.valueOf(10);
-	
 	private static final long INT_MASK = 0xFFFFFFFF;
 	private static final long INT_SHIFT = 32;
 	//We would normally say 0xFFFFFFFF_FFFFFFFF, but this is considered "out of range" to java compilers because long is a signed type.
 	private static final long NEGATIVE_SIGN_EXTEND = -1L;
+	
+	public static final Int128 ZERO = new Int128(0, 0);
+	public static final Int128 ONE  = new Int128(0, 1);
+	public static final Int128 NEGATIVE_ONE = new Int128(NEGATIVE_SIGN_EXTEND, NEGATIVE_SIGN_EXTEND);
+	public static final Int128 TEN = new Int128(0, 10);
+	
+	
 	
 	/**
 	 * Returns an Int128 whose value is {@code (this + other)}.
