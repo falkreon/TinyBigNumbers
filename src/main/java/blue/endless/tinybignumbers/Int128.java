@@ -24,6 +24,12 @@ public record Int128(long high, long low) {
 	//We would normally say 0xFFFFFFFF_FFFFFFFF, but this is considered "out of range" to java compilers because long is a signed type.
 	private static final long NEGATIVE_SIGN_EXTEND = -1L;
 	
+	/**
+	 * Returns an Int128 whose value is {@code (this + other)}.
+	 *
+	 * @param  other value to be added to this Int128.
+	 * @return {@code this + other}
+	 */
 	public Int128 add(Int128 other) {
 		if (other.isZero()) return this;
 		if (isZero()) return other;
@@ -45,19 +51,22 @@ public record Int128(long high, long low) {
 		return new Int128(sumHigh, sumLow);
 	}
 	
+	/**
+	 * Returns an Int128 whose value is {@code (this - other)}.
+	 *
+	 * @param  other value to be subtracted from this Int128.
+	 * @return {@code this - other}
+	 */
 	public Int128 subtract(Int128 other) {
 		return add(other.negate());
 	}
 	
-	public Int128 negate() {
-		Int128 onesComplement = new Int128(~high, ~low);
-		return onesComplement.add(ONE);
-	}
-	
-	public Int128 abs() {
-		return (isNegative()) ? negate() : this;
-	}
-	
+	/**
+	 * Returns an Int128 whose value is {@code (this * other)}.
+	 *
+	 * @param  other value to be multiplied by this Int128.
+	 * @return {@code this * other}
+	 */
 	public Int128 multiply(Int128 other) {
 		Int128 magnitude = multiplyPositive(this.abs(), other.abs());
 		int sigA = this.signum();
@@ -88,40 +97,130 @@ public record Int128(long high, long low) {
 		return new Int128(productHigh, productLow);
 	}
 	
+	/**
+	 * Returns an Int128 whose value is {@code (this / other)}.
+	 *
+	 * @param  other value by which this Int128 is to be divided.
+	 * @return {@code this / other}
+	 */
 	public Int128 divide(Int128 other) {
 		if (other.isZero()) throw new ArithmeticException("Divide by zero");
 		if (other.equals(ONE)) return this;
 		
-		return valueOf(toBigInteger().divide(other.toBigInteger())); //TODO: IMPLEMENT
+		/* Now that I've written this I somehow can't bring myself to implement division by hand */
+		return valueOf(toBigInteger().divide(other.toBigInteger()));
 	}
 	
-	public boolean isZero() {
-		return low==0 && high==0;
+	/**
+	 * Returns an Int128 whose value is the absolute value of this Int128
+	 * @return {@code abs(this)}
+	 */
+	public Int128 abs() {
+		return (isNegative()) ? negate() : this;
 	}
 	
-	public boolean isNegative() {
-		return (high<0);
+	/**
+	 * Returns an Int128 which is the two's-complement negative of this Int128.
+	 * @return {@code -this}
+	 */
+	public Int128 negate() {
+		Int128 onesComplement = new Int128(~high, ~low);
+		return onesComplement.add(ONE);
 	}
 	
+	/**
+	 * Returns the signum function of this Int128.
+	 * @return -1, 0 or 1 as the value of this Int128 is negative, zero or positive, respectively
+	 */
 	public int signum() {
 		if (low==0 && high==0) return 0;
 		if (high<0) return -1;
 		return 1;
 	}
 	
+	/**
+	 * Returns true if this Int128's value is zero.
+	 * @return true if {@code this.equals(ZERO)}, otherwise false.
+	 */
+	public boolean isZero() {
+		return low==0 && high==0;
+	}
+	
+	/**
+	 * Returns true if this Int128's value is less than zero.
+	 * @return {@code (this<ZERO)}
+	 */
+	public boolean isNegative() {
+		return (high<0);
+	}
+	
+	public Int128 shiftLeft(int spaces) {
+		if (spaces==0) return this;
+		//if (spaces<0) return shiftRight(-spaces);
+		
+		if (spaces==64) return new Int128(low, 0);
+		
+		if (spaces>64) {
+			return new Int128(low<<(spaces-64), 0);
+		}
+		
+		final long mask = (long) (Math.pow(2, spaces)-1); //May not be necessary but we're not taking chances
+		final long a = high << spaces | ((low >>> (64-spaces))&mask);
+		final long b = low << spaces;
+		return new Int128(a, b);
+	}
+	
+	/*//TODO: Implement
+	public Int128 shiftRight(int spaces) {
+		
+	}*/
+	
+	/**
+	 * Converts this Int128 to a {@code long}. This conversion is analogous to a
+	 * <i>narrowing primitive conversion</i> from {@code long} to
+	 * {@code int} as defined in <cite>The Java Language Specification</cite>:
+	 * if this Int128 is too big to fit in a {@code long}, only the low-order 64
+	 * bits are returned. Note that this conversion can lose information about the
+	 * overall magnitude of the Int128 value as well as return a result with the
+	 * opposite sign.
+	 *
+	 * @return this Int128 converted to a {@code long}.
+	 * @see #longValueExact()
+	 */
 	public long longValue() {
 		return low;
 	}
 	
+	/**
+	 * Converts this Int128 to a {@code long}, checking for lost information.
+	 * If the value of this Int128 is out of the range of the {@code long} type,
+	 * then an {@code ArithmeticException} is thrown.
+	 *
+	 * @return this Int128 converted to a {@code long}.
+	 * @throws ArithmeticException if the value of {@code this} will not exactly
+	 *         fit in a {@code long}.
+	 * @see #longValue()
+	 */
+	public long longValueExact() throws ArithmeticException {
+		if (high==0 && low>=0) {
+			//If high is empty and we wouldn't swap signs, go for it
+			return low;
+		} else if (high==-1 && low<0) {
+			//Likewise, if high is 0xFFFFFFFF_FFFFFFFF (a sign-extension, basically) and low won't flip signs to positive, go ahead.
+			return low;
+		} else {
+			//We either have important information in high, or are using the sign bit in low, so the number won't fit.
+			throw new ArithmeticException("Int128 out of long range");
+		}
+	}
+	
+	/**
+	 * Converts this Int128 to a BigInteger.
+	 * @return a BigInteger whose value is exactly the value of this Int128
+	 */
 	public BigInteger toBigInteger() {
 		/*
-		 * One way to accomplish this:
-		 * * strip the top bit of high into a signum
-		 * * strip the top bit of low into a separate integer
-		 * * shift the low, high-bit-of-low, and high, into the right places
-		 * * negate the BigInteger if signum is positive
-		 * 
-		 * The problem with this approach is small, negative numbers.
+		 * There are other ways to shift the bits around but it turns out this is really the most reliable way to get it done.
 		 */
 		
 		byte[] val = new byte[16];
@@ -146,6 +245,18 @@ public record Int128(long high, long low) {
 		return new BigInteger(val);
 	}
 	
+	/**
+	 * Creates an Int128 whose value is the value of the specified BigInteger.
+	 * This conversion is analogous to a <i>narrowing primitive conversion</i>
+	 * from {@code long} to {@code int} as defined in
+	 * <cite>The Java Language Specification</cite>: if the BigInteger is too
+	 * big to fit in an Int128, only the low-order 128 bits are returned. Note
+	 * that this conversion can lose information about the overall magnitude of
+	 * the Int128 value, but the sign <em>is preserved</em>.
+	 *
+	 * @param b The BigInteger whose value should be returned
+	 * @return An Int128 containing the value of the provided BigInteger
+	 */
 	public static Int128 valueOf(BigInteger b) {
 		BigInteger positive = b.abs();
 		
@@ -159,7 +270,17 @@ public record Int128(long high, long low) {
 		}
 	}
 	
+	/**
+	 * Creates an Int128 whose value is equal to that of the specified {@code long}.
+	 * @param l value of the Int128 to return
+	 * @return an Int128 with the specified value
+	 */
 	public static Int128 valueOf(long l) {
+		if (l==0) return ZERO;
+		if (l==1) return ONE;
+		if (l==-1) return NEGATIVE_ONE;
+		if (l==10) return TEN;
+		
 		if (l<0) {
 			//sign-extend
 			return new Int128(NEGATIVE_SIGN_EXTEND, l);
@@ -169,6 +290,6 @@ public record Int128(long high, long low) {
 	}
 	
 	public String toString() {
-		return toBigInteger().toString();
+		return toBigInteger().toString(); //Yeah, it's a copout. We'll do better later.
 	}
 }
